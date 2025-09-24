@@ -11,9 +11,14 @@ using namespace std;
  * Time Complexity: O(log N)
  */
 int findNextValue(const vector<pair<int, int>>& series, int timestamp) {
-    // Binary search for first element > timestamp
-    auto it = upper_bound(series.begin(), series.end(), 
-                         make_pair(timestamp, INT_MAX));
+    // Binary search for first element >= timestamp
+    auto it = lower_bound(series.begin(), series.end(), 
+                         make_pair(timestamp, INT_MIN));
+    
+    // If exact match found, return its value
+    if (it != series.end() && it->first == timestamp) {
+        return it->second;
+    }
     
     // If found next timestamp, return its value
     if (it != series.end()) {
@@ -27,11 +32,6 @@ int findNextValue(const vector<pair<int, int>>& series, int timestamp) {
 /**
  * @brief Aggregate two time series using backfilling and summation
  * 
- * Steps:
- * 1. Collect all unique timestamps from both series
- * 2. For each timestamp, get value (direct or backfilled) from each series
- * 3. Sum the values and add to result
- * 
  * @param first_series First time series data
  * @param second_series Second time series data
  * @return Aggregated time series with all unique timestamps
@@ -43,46 +43,21 @@ vector<pair<int, int>> aggregateTimeSeries(
     const vector<pair<int, int>>& first_series,
     const vector<pair<int, int>>& second_series) {
     
-    // Step 1: Collect all unique timestamps
-    set<int> all_timestamps;
-    for (const auto& point : first_series) {
-        all_timestamps.insert(point.first);
-    }
-    for (const auto& point : second_series) {
-        all_timestamps.insert(point.first);
-    }
-    
-    // Step 2: Create lookup maps for direct timestamp access
-    map<int, int> first_map, second_map;
-    for (const auto& point : first_series) {
-        first_map[point.first] = point.second;
-    }
-    for (const auto& point : second_series) {
-        second_map[point.first] = point.second;
-    }
-    
-    // Step 3: Process each timestamp and aggregate values
     vector<pair<int, int>> result;
+    int i = 0, j = 0;
     
-    for (int timestamp : all_timestamps) {
-        int value1 = 0, value2 = 0;
+    while (i < first_series.size() || j < second_series.size()) {
+        int t1 = (i < first_series.size()) ? first_series[i].first : INT_MAX;
+        int t2 = (j < second_series.size()) ? second_series[j].first : INT_MAX;
+        int timestamp = min(t1, t2);
         
-        // Get value from first series (direct or backfilled)
-        if (first_map.find(timestamp) != first_map.end()) {
-            value1 = first_map[timestamp];
-        } else {
-            value1 = findNextValue(first_series, timestamp);
-        }
+        int val1 = findNextValue(first_series, timestamp);
+        int val2 = findNextValue(second_series, timestamp);
         
-        // Get value from second series (direct or backfilled)
-        if (second_map.find(timestamp) != second_map.end()) {
-            value2 = second_map[timestamp];
-        } else {
-            value2 = findNextValue(second_series, timestamp);
-        }
+        result.push_back({timestamp, val1 + val2});
         
-        // Aggregate and store
-        result.push_back({timestamp, value1 + value2});
+        if (t1 <= t2) i++;
+        if (t2 <= t1) j++;
     }
     
     return result;
@@ -159,10 +134,10 @@ EXPECTED OUTPUT:
 
 COMPLEXITY:
   Time:  O((X + Y) * log(max(X, Y))) where X, Y are input series sizes
-  Space: O(X + Y) for storing timestamps and results
+  Space: O(X + Y) for storing results
 
 OPTIMIZATION:
-  Uses binary search for backfilling instead of linear scan
-  Improves from O(N) to O(log N) per lookup operation
+  Uses two-pointer technique with binary search for backfilling
+  Processes timestamps in one pass but calls findNextValue O(log N) per timestamp
 ===============================================================================
 */
